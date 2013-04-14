@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>thecure Demo</title>
+<style>
+
+.node circle {
+  fill: #fff;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+.node {
+  font: 15px sans-serif;
+  cursor:pointer;
+  transition: color .2s;
+	-moz-transition: color .2s;
+	-webkit-transition: color .2s;
+	-o-transition: color .2s; 
+	transition: font-size .2s;
+	-moz-transition: font-size .2s;
+	-webkit-transition: font-size .2s;
+	-o-transition: font-size .2s; 
+}
+
+.link {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 1.5px;
+}
+
+</style>
+<body>
+	<h4>Drag and drop nodes over other nodes to add them as children. <br>Note: Manipulate with a right to left approach.</h4>
+	<div id="body"></div>
+<script src="js/d3.v3.min.js"></script>
+<!--<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>-->
+<script>
+	
+	var json_data={
+			"name":"A",
+			children:[
+			{"name":"B",children:[
+			{"name":"C",children:[]}
+			]},		
+			{"name":"D",children:[
+				{"name":"E",children:[
+				{"name":"F",children:[
+				{"name":"G",children:[]}
+				]},
+				{"name":"H",children:[
+				{"name":"I",children:[]}
+				]}
+				]}
+			]
+			}
+			]
+};
+
+var m = [20, 120, 20, 120],
+    w = 1480 - m[1] - m[3],
+    h = 600 - m[0] - m[2],
+    i = 0,
+    root;
+
+var drag = d3.behavior.drag()
+    .on("drag", dragmove)
+    .on("dragend",dragend);
+var tree = d3.layout.tree()
+    .size([h, w]);
+
+var diagonal = d3.svg.diagonal()
+    .projection(function(d) { return [d.y, d.x]; });
+
+var vis = d3.select("#body").append("svg:svg")
+    .attr("width", w + m[1] + m[3])
+    .attr("height", h + m[0] + m[2])
+  .append("svg:g")
+    .attr("transform", "translate(" + m[3] + "," + m[0] + ")");
+
+  root = json_data;
+  root.x0 = h / 2;
+  root.y0 = 0;
+
+  function toggleAll(d) {
+    if (d.children) {
+      d.children.forEach(toggleAll);
+      toggle(d);
+    }
+  }
+  update(root);
+
+
+function update(source) {
+  var duration = d3.event && d3.event.altKey ? 5000 : 500;
+
+  var nodes = tree.nodes(root).reverse();
+
+  nodes.forEach(function(d) { d.y = d.depth * 180; });
+
+  var node = vis.selectAll("g.node")
+      .data(nodes, function(d) { return d.id || (d.id = ++i); });
+
+  var nodeEnter = node.enter().append("svg:g")
+      .attr("class", "node")
+      .attr("id",function(d){return d.name;})
+      .attr("transform", function(d) { return "translate(" + source.y0 + "," + source.x0 + ")"; })
+      .call(drag);
+
+  nodeEnter.append("svg:circle")
+      .attr("r", 1e-6)
+      .style("fill", function(d) { return d._children ? "lightsteelblue" : "#fff"; });
+
+  nodeEnter.append("svg:text")
+      .attr("x", function(d) { return d.children || d._children ? -10 : 10; })
+      .attr("dy", ".35em")
+      .attr("text-anchor", function(d) { return d.children || d._children ? "end" : "start"; })
+      .text(function(d) { return d.name; })
+      .style("fill-opacity", 1e-6);
+
+  var nodeUpdate = node.transition()
+      .duration(duration)
+      .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; });
+
+  nodeUpdate.select("circle")
+      .attr("r", 6)
+      .style("fill", function(d) { return d._children ? "lightsteelblue" : "#fff"; });
+
+  nodeUpdate.select("text")
+      .style("fill-opacity", 1);
+
+  var nodeExit = node.exit().transition()
+      .duration(duration)
+      .attr("transform", function(d) { return "translate(" + source.y + "," + source.x + ")"; })
+      .remove();
+
+  nodeExit.select("circle")
+      .attr("r", 1e-6);
+
+  nodeExit.select("text")
+      .style("fill-opacity", 1e-6);
+
+  var link = vis.selectAll("path.link")
+      .data(tree.links(nodes), function(d) { return d.target.id; });
+
+  link.enter().insert("svg:path", "g")
+      .attr("class", "link")
+      .attr("d", function(d) {
+        var o = {x: source.x0, y: source.y0};
+        return diagonal({source: o, target: o});
+      })
+    .transition()
+      .duration(duration)
+      .attr("d", diagonal);
+
+  link.transition()
+      .duration(duration)
+      .attr("d", diagonal);
+
+  link.exit().transition()
+      .duration(duration)
+      .attr("d", function(d) {
+        var o = {x: source.x, y: source.y};
+        return diagonal({source: o, target: o});
+      })
+      .remove();
+
+  nodes.forEach(function(d) {
+    d.x0 = d.x;
+    d.y0 = d.y;
+  });
+}
+
+
+
+var name;
+var min_name;
+function dragmove(d) {
+	name=d.name;
+	d3.select(this)
+	  .attr("transform", "translate(" + parseInt(d3.event.x) + "," + parseInt(d3.event.y) + ")");
+    var data=d3.selectAll(".node").data();
+    min=10000;
+    for(var temp in data)
+    {
+		if(data[temp]["name"]!=name)
+		{
+			distance = Math.sqrt(Math.pow(parseInt(d3.event.x-data[temp]["y"]),2)+Math.pow(parseInt(d3.event.y-data[temp]["x"]),2));
+			if(distance<min)
+			{
+				min=distance;
+				min_name=data[temp]["name"];
+			}
+		}
+	}
+	d3.selectAll(".node").style("fill","black");
+	d3.selectAll(".node").style("font-size","15px");
+	d3.select("#"+min_name).style("fill","purple");
+	d3.select("#"+min_name).style("font-size","20px");
+	d3.select("#"+name).style("fill","purple");
+	d3.select("#"+name).style("font-size","20px");
+}
+
+var counter=0;
+function dragend()
+{
+	var to_add_children=getAllChildren(name);
+	var parent_node_children = d3.select("#"+name).data()[0].parent.children;
+	var to_remove=0;
+	for(var temp in parent_node_children)
+	{
+		if(parent_node_children[temp]["name"]==name)
+		{
+			to_remove=parseInt(temp);
+		}
+	}
+	
+	if(d3.select("#"+min_name).data()[0].hasOwnProperty("children"))
+	{
+		console.log("has");
+	var children = d3.selectAll("#"+min_name).data()[0].children;
+	var flag=1;
+	for(var temp in children)
+	{
+		if(children[temp]["name"]==name)
+		{
+			flag=0;
+		}
+	}
+	if(flag==1)
+	{
+		d3.selectAll("#"+min_name).data()[0].children.push({"name":name,"children":to_add_children});
+			d3.select("#"+name).data()[0].parent.children.splice(to_remove,1);
+	}
+	
+	console.log(d3.selectAll("#"+min_name).data()[0].children);	
+	}
+	else
+	{
+		console.log("hasn't");
+		d3.selectAll("#"+min_name).data()[0]["children"]={"name":name,"children":to_add_children};
+			d3.select("#"+name).data()[0].parent.children.splice(to_remove,1);
+		counter++;
+	}
+	d3.selectAll(".node").style("fill","black");
+	d3.selectAll(".node").style("font-size","15px");
+	update(root);
+}
+
+//Recursive function to get all the children.
+function getAllChildren(name)
+{
+	var to_add_children=[];
+	if(d3.select("#"+name).data()[0].hasOwnProperty("children"))
+	{
+		var data=d3.selectAll("#"+name).data()[0].children;
+		for(var temp in data)
+		{
+			var temp_children=getAllChildren(data[temp]["name"]);
+			to_add_children.push({"name":data[temp]["name"],"children":temp_children});
+		}
+	}
+	return to_add_children;
+}
+</script>
